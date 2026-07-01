@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+     containers:
+      - name: frontend-cont
+        image: frontend:v2
+        ports:
+         - containerPort: 80
+        resources:
+          requests:
+           cpu: "250m"
+           memory: "128Mi"
+          limits:
+           cpu: "500m"
+           memory: "256Mi"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+ name: frontend-service
+ namespace: data
+spec:
+ type: ClusterIP
+ selector:
+  app: frontend
+ ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80

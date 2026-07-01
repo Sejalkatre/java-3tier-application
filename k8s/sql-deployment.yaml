@@ -1,0 +1,110 @@
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: my-pv
+spec:
+  capacity:
+    storage: 2Gi
+  storageClassName: local-storage
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain 
+  hostPath:
+    path: /data/mysql
+    type: DirectoryOrCreate
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: my-pvc
+  namespace: data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  volumeName: my-pv
+  storageClassName: local-storage
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+   name: mysql-config
+   namespace: data
+data:
+  MYSQL_DATABASE: "employeedb"
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+  namespace: data
+type: Opaque
+data:
+  MYSQL_ROOT_PASSWORD: cm9vdDEyMw==  # base64 encoded value of "root123"
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-deployment
+  namespace: data
+spec:
+ replicas: 1
+ selector:
+   matchLabels:
+    app: mysql
+ template:
+  metadata:
+    labels:
+      app: mysql
+  spec:
+    containers:
+     - name: mysql
+       image: mysql:8.0
+       ports:
+        - containerPort: 3306
+       envFrom:
+        - configMapRef:
+            name: mysql-config
+        - secretRef:
+            name: mysql-secret
+       resources:
+         requests:
+           memory: "512Mi"
+           cpu: "250m"
+         limits:
+           memory: "1Gi"
+           cpu: "500m"
+       volumeMounts:
+        - name: mysql-storage
+          mountPath: /var/lib/mysql
+    volumes:
+     - name: mysql-storage
+       persistentVolumeClaim:
+          claimName: my-pvc
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: data
+spec:
+  type: ClusterIP
+  selector:
+    app: mysql
+  ports:
+   - protocol: TCP
+     port: 3306
+     targetPort: 3306
